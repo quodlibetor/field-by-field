@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "field-by-field",
+    "field-by-field-macros",
+]

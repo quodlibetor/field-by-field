@@ -1,0 +1,12 @@
+[package]
+name = "field-by-field-macros"
+version = "0.1.0"
+authors = ["Brandon W Maister <quodlibetor@gmail.com>"]
+
+[dependencies]
+syn = { version = "0.10.3", features = ["parsing", "printing"] }
+quote = "^0.3.10"
+field-by-field = { version = "0.1", path = "../field-by-field" }
+
+[lib]
+proc-macro = true
