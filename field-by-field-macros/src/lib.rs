@@ -44,14 +44,15 @@ fn build_trait_field_by_field(input: syn::MacroInput) -> quote::Tokens {
         }
         syn::Body::Enum(ref data) => {
             let fn_assert = build_fn_assert_equal_field_by_field(&name);
+            let is_multivariant = data.len() > 1;
             let variants = data.iter()
                 .map(|var| {
                     let var_name = &var.ident;
                     match var.data {
                         syn::VariantData::Unit =>
                             build_match_unit_variant(&name, &var_name),
-                        syn::VariantData::Tuple(_) =>
-                            panic!("Didn't make it to tuple enums yet"),
+                        syn::VariantData::Tuple(ref fields) =>
+                            build_match_tuple_variant(&name, &var_name, fields, is_multivariant),
                         syn::VariantData::Struct(_) =>
                             panic!("Didn't make it to struct enums yet"),
                     }
@@ -89,7 +90,7 @@ fn build_fn_fields_not_equal(fields: &[syn::Field]) -> quote::Tokens {
     let find_unequal_fields = fields.iter().map(|f| {
         let f_name = &f.ident;
         let f_str = f_name.as_ref().map(|v| v.to_string())
-            .expect("Couldn't convert field to str");
+            .expect(&format!("Couldn't convert field to str: {:?}", f));
         quote! {
             if self.#f_name != other.#f_name {
                 list.push(::field_by_field::UnequalField {
@@ -131,7 +132,78 @@ fn build_match_unit_variant(name: &syn::Ident, var_name: &syn::Ident) -> quote::
             });
         }
     }
+}
 
+/// Build a match statement that compares a tuple enum against others
+fn build_match_tuple_variant(name: &syn::Ident,
+                             var_name: &syn::Ident,
+                             var_fields: &[syn::Field],
+                             is_multivariant: bool)
+-> quote::Tokens {
+    let actually_fields: Vec<_> = var_fields.iter()
+        .enumerate()
+        .map(|(i, f)| {
+            assert!(f.ident.is_none(),
+                    format!("Fields in tuples should be unnamed, not {:?}", f.ident));
+            syn::Ident::from(format!("_{}", i))
+        })
+        .collect();
+    let actually_field_refs: Vec<_> = actually_fields.iter()
+        .map(|name| quote! { ref #name }).collect();
+    let expected_fields: Vec<_> = var_fields.iter()
+        .enumerate()
+        .map(|(i, f)| {
+            assert!(f.ident.is_none(),
+                    format!("Fields in tuples should be unnamed, not {:?}", f.ident));
+            syn::Ident::from(format!("_e{}", i))
+        })
+        .collect();
+    let expected_field_refs: Vec<_> = expected_fields.iter()
+        .map(|name| quote! { ref #name }).collect();
+
+    let name_str = name.to_string();
+    let var_name_str = var_name.to_string();
+
+    let comparisons: Vec<_> = actually_fields.iter()
+        .zip(&expected_fields)
+        .enumerate()
+        .map(|(i, (actually, expected))| {
+             let field_name = format!("{}::{}.{}", name_str, var_name_str, i);
+             quote! {
+                 if #actually != #expected {
+                     list.push(::field_by_field::UnequalField {
+                         field_name: #field_name.into(),
+                         actually: Box::new(#actually.clone()),
+                         expected: Box::new(#expected.clone()),
+                     });
+                 }
+             }
+        })
+        .collect();
+
+    let field_match = quote! {
+        ( &#name::#var_name(#(#actually_field_refs),*),
+          &#name::#var_name(#(#expected_field_refs),*) ) => {
+            #(#comparisons)*
+        }
+    };
+
+    if is_multivariant {
+        let var_field_name = format!("{}::{}", name_str, var_name_str);
+        // TODO: improve error messages if the variants differ
+        quote! {
+            #field_match
+            (ref actually @ &#name::#var_name(..), ref expected) => {
+                list.push(::field_by_field::UnequalField {
+                    field_name: #var_field_name.into(),
+                    actually: Box::new((*actually).clone()),
+                    expected: Box::new((*expected).clone()),
+                });
+            }
+        }
+    } else {
+        field_match
+    }
 }
 
 
