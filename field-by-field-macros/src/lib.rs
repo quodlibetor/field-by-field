@@ -50,7 +50,7 @@ fn build_trait_field_by_field(input: syn::MacroInput) -> quote::Tokens {
                     let var_name = &var.ident;
                     match var.data {
                         syn::VariantData::Unit =>
-                            build_match_unit_variant(&name, &var_name),
+                            build_match_unit_variant(&name, &var_name, is_multivariant),
                         syn::VariantData::Tuple(ref fields) =>
                             build_match_tuple_variant(&name, &var_name, fields, is_multivariant),
                         syn::VariantData::Struct(_) =>
@@ -65,6 +65,8 @@ fn build_trait_field_by_field(input: syn::MacroInput) -> quote::Tokens {
 
                     fn fields_not_equal(&self, other: &Self)
                     -> Vec<::field_by_field::UnequalField> {
+                        // This is never modified in the single-variant enum case.
+                        #[allow(unused_mut)]
                         let mut list: Vec<::field_by_field::UnequalField> = Vec::new();
 
                         match (self, other) {
@@ -119,17 +121,25 @@ fn build_fn_fields_not_equal(fields: &[syn::Field]) -> quote::Tokens {
 ///
 /// Since this is for unit variants this doesn't check the actual value if it
 /// isn't an exact match.
-fn build_match_unit_variant(name: &syn::Ident, var_name: &syn::Ident) -> quote::Tokens {
+fn build_match_unit_variant(name: &syn::Ident, var_name: &syn::Ident, is_multivariant: bool)
+-> quote::Tokens {
     let left_str = format!("{}::{}", &name, &var_name);
 
-    quote! {
-        ( &#name::#var_name, &#name::#var_name ) => {},
-        ( &#name::#var_name, ref expected ) => {
-            list.push(::field_by_field::UnequalField {
-                field_name: #left_str.to_string(),
-                actually: Box::new(#left_str.to_string()),
-                expected: Box::new(format!("{:?}", &expected)),
-            });
+    if is_multivariant {
+        quote! {
+            ( &#name::#var_name, &#name::#var_name ) => {}
+            ( &#name::#var_name, ref expected ) => {
+                list.push(::field_by_field::UnequalField {
+                    field_name: #left_str.to_string(),
+                    actually: Box::new(#left_str.to_string()),
+                    expected: Box::new(format!("{:?}", &expected)),
+                });
+            }
+        }
+    } else {
+        // TODO: This causes a "variable does not need to be mutable" warning
+        quote! {
+            ( &#name::#var_name, &#name::#var_name ) => {}
         }
     }
 }

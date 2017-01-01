@@ -14,6 +14,16 @@ enum UnitEnum {
     Two,
 }
 
+#[derive(FieldByField, Debug)]
+enum SingleUnitEnum {
+    One,
+}
+
+#[test]
+fn assert_allows_same_single_variant() {
+    SingleUnitEnum::One.assert_equal_field_by_field(&SingleUnitEnum::One);
+}
+
 #[test]
 fn list_allows_same() {
     let diffs = UnitEnum::One.fields_not_equal(&UnitEnum::One);
