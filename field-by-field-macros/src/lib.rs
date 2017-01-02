@@ -53,8 +53,8 @@ fn build_trait_field_by_field(input: syn::MacroInput) -> quote::Tokens {
                             build_match_unit_variant(&name, &var_name, is_multivariant),
                         syn::VariantData::Tuple(ref fields) =>
                             build_match_tuple_variant(&name, &var_name, fields, is_multivariant),
-                        syn::VariantData::Struct(_) =>
-                            panic!("Didn't make it to struct enums yet"),
+                        syn::VariantData::Struct(ref fields) =>
+                            build_match_struct_variant(&name, &var_name, fields, is_multivariant),
                     }
                 }
             );
@@ -216,6 +216,65 @@ fn build_match_tuple_variant(name: &syn::Ident,
     }
 }
 
+/// Build a match arm that compares structs variants against themselves or other
+fn build_match_struct_variant(name: &syn::Ident,
+                              var_name: &syn::Ident,
+                              fields: &[syn::Field],
+                              is_multivariant: bool)
+-> quote::Tokens {
+    let field_names = fields.iter().cloned()
+        .map(|field| {
+             let ident = field.ident;
+             ident
+                .unwrap_or_else(|| panic!("Unable to get name for field in struct-like enum"))
+        })
+        .collect::<Vec<_>>();
+    let expected_names = field_names.iter()
+        .map(|name| format!("expected_{}", name).into())
+        .collect::<Vec<syn::Ident>>();
+    let expected_name_bindings = field_names.iter().zip(&expected_names)
+        .map(|(name, expected_name)| {
+            quote! { #name: ref #expected_name }
+        })
+        .collect::<Vec<_>>();
+    let comparisons = field_names.iter()
+        .zip(&expected_names)
+        .map(|(name, other_name)| {
+            let vname = name.as_ref();
+            quote! {
+                if #name != #other_name {
+                    list.push(::field_by_field::UnequalField {
+                        field_name: #vname.into(),
+                        actually: Box::new(#name.clone()),
+                        expected: Box::new(#other_name.clone()),
+                    })
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+    let by_field_match = quote! {
+        (&#name::#var_name { #(ref #field_names),* },
+         &#name::#var_name { #(#expected_name_bindings,)* }) => {
+            #(#comparisons)*
+        }
+    };
+
+    if is_multivariant {
+        let vname = format!("{}::{}", name, var_name);
+        quote! {
+            #by_field_match
+            (ref actually @ &#name::#var_name { .. }, expected) => {
+                list.push(::field_by_field::UnequalField {
+                    field_name: #vname.into(),
+                    actually: Box::new((*actually).clone()),
+                    expected: Box::new((*expected).clone()),
+                })
+            }
+        }
+    } else {
+        by_field_match
+    }
+}
 
 /// Build a function that panics if the result of fiels_not_equal is non-empty
 ///
