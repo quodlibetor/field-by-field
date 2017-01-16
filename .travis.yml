@@ -1,0 +1,12 @@
+language: rust
+cache: cargo
+rust:
+  - beta
+  - nightly
+
+script:
+  - |
+    cd field-by-field-macros
+    cargo test --verbose
+
+sudo: false
