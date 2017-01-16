@@ -1,5 +1,3 @@
-#![feature(custom_derive, proc_macro)]
-
 /// Test crate for derive(FieldByField).
 
 extern crate field_by_field;

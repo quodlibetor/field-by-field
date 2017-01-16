@@ -1,5 +1,3 @@
-#![feature(proc_macro, proc_macro_lib)]
-
 /// Custom-derive providing macros for the field-by-field Traits
 ///
 /// See the tests/derive.rs file for examples of use.
