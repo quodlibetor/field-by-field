@@ -2,5 +2,6 @@
 name = "field-by-field"
 version = "0.1.0"
 authors = ["Brandon W Maister <bwm@knewton.com>"]
+license = "mit"
 
 [dependencies]
