@@ -26,89 +26,85 @@ fn build_trait_field_by_field(input: syn::MacroInput) -> quote::Tokens {
 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    match input.body {
-        syn::Body::Struct(ref data) => {
-            let fn_fields_not_equal = build_fn_fields_not_equal(&data.fields());
-            let fn_assert_equal_field_by_field = build_fn_assert_equal_field_by_field(&name);
+    let fn_assert_equal_field_by_field = build_fn_assert_equal_field_by_field(&name);
 
-            quote! {
-                impl #impl_generics ::field_by_field::EqualFieldByField
-                for #name #ty_generics #where_clause {
-                    #fn_fields_not_equal
+    let fn_fields_not_equal = match input.body {
+        syn::Body::Struct(ref data) => build_fn_fields_not_equal(&data.fields()),
+        syn::Body::Enum(ref data) => build_fn_fields_not_equal_enum(&name, &data)
+    };
+    quote! {
+        impl #impl_generics ::field_by_field::EqualFieldByField
+        for #name #ty_generics #where_clause {
 
-                    #fn_assert_equal_field_by_field
-                }
-            }
-        }
-        syn::Body::Enum(ref data) => {
-            let fn_assert = build_fn_assert_equal_field_by_field(&name);
-            let is_multivariant = data.len() > 1;
-            let variants = data.iter()
-                .map(|var| {
-                    let var_name = &var.ident;
-                    match var.data {
-                        syn::VariantData::Unit =>
-                            build_match_unit_variant(&name, &var_name, is_multivariant),
-                        syn::VariantData::Tuple(ref fields) =>
-                            build_match_tuple_variant(&name, &var_name, fields, is_multivariant),
-                        syn::VariantData::Struct(ref fields) =>
-                            build_match_struct_variant(&name, &var_name, fields, is_multivariant),
-                    }
-                }
-            );
+            #fn_fields_not_equal
 
-            quote! {
-                impl #impl_generics ::field_by_field::EqualFieldByField
-                for #name #ty_generics #where_clause {
-
-                    fn fields_not_equal(&self, other: &Self)
-                    -> Vec<::field_by_field::UnequalField> {
-                        // This is never modified in the single-variant enum case.
-                        #[allow(unused_mut)]
-                        let mut list: Vec<::field_by_field::UnequalField> = Vec::new();
-
-                        match (self, other) {
-                            #(#variants)*
-                        }
-
-                        list
-                    }
-
-                    #fn_assert
-                }
-            }
+            #fn_assert_equal_field_by_field
         }
     }
 }
-
 
 /// Build a function that compares all the items in a simple struct
 ///
 /// This emits just a long list of `if self.name != other.name {
 /// vec.push(UnequalField); }` tokens.
 fn build_fn_fields_not_equal(fields: &[syn::Field]) -> quote::Tokens {
-    let find_unequal_fields = fields.iter().map(|f| {
-        let f_name = &f.ident;
-        let f_str = f_name.as_ref().map(|v| v.to_string())
-            .expect(&format!("Couldn't convert field to str: {:?}", f));
-        quote! {
-            if self.#f_name != other.#f_name {
-                list.push(::field_by_field::UnequalField {
-                    field_name: #f_str.to_string(),
-                    actually: Box::new(self.#f_name.clone()),
-                    expected: Box::new(other.#f_name.clone()),
-                });
+    let find_unequal_fields = fields.iter()
+        .map(|f| {
+            let f_name = &f.ident;
+            let f_str = f_name.as_ref().map(|v| v.to_string())
+                .expect(&format!("Couldn't convert field to str: {:?}", f));
+            quote! {
+                if self.#f_name != other.#f_name {
+                    list.push(::field_by_field::UnequalField {
+                        field_name: #f_str.to_string(),
+                        actually: Box::new(self.#f_name.clone()),
+                        expected: Box::new(other.#f_name.clone()),
+                    });
+                }
             }
-        }
-    });
+        });
 
     quote! {
         fn fields_not_equal(&self, other: &Self)
-                            -> Vec<::field_by_field::UnequalField>
-        {
+        -> Vec<::field_by_field::UnequalField> {
             let mut list: Vec<::field_by_field::UnequalField> = Vec::new();
 
             #(#find_unequal_fields)*
+
+            list
+        }
+    }
+}
+
+/// Build a function that compares enum variants and their nested fields
+///
+/// Same as build_fn_fields_not_equal, but a little more complex because it's
+/// iterating over variants and then checking their fields, instead of just
+/// checking fields
+fn build_fn_fields_not_equal_enum(ty_name: &syn::Ident, data: &[syn::Variant]) -> quote::Tokens {
+    let is_multivariant = data.len() > 1;
+    let variants = data.iter()
+        .map(|var| {
+            let variant_name = &var.ident;
+            match var.data {
+                syn::VariantData::Unit =>
+                    build_match_unit_variant(&ty_name, &variant_name, is_multivariant),
+                syn::VariantData::Tuple(ref fields) =>
+                    build_match_tuple_variant(&ty_name, &variant_name, fields, is_multivariant),
+                syn::VariantData::Struct(ref fields) =>
+                    build_match_struct_variant(&ty_name, &variant_name, fields, is_multivariant),
+            }
+        });
+    quote! {
+        fn fields_not_equal(&self, other: &Self)
+        -> Vec<::field_by_field::UnequalField> {
+            // This is never modified in the single-variant enum case.
+            #![allow(unused_mut)]
+            let mut list: Vec<::field_by_field::UnequalField> = Vec::new();
+
+            match (self, other) {
+                #(#variants)*
+            }
 
             list
         }
