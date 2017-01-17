@@ -1,30 +1,37 @@
-/// Test crate for derive(FieldByField) on a tuple-like enum
+/// Test crate for derive(FieldByField) on a struct-like enum
 
 extern crate field_by_field;
 #[macro_use]
-extern crate field_by_field_macros;
+extern crate field_by_field_derive;
 
 use field_by_field::EqualFieldByField;
 
 #[derive(FieldByField, Debug, Clone)]
-enum TupleEnum {
-    One(i8, String),
-    Two(u16, u16),
+enum StructEnum {
+    One {
+        two: i8,
+        flip: String,
+    },
+    Two {
+        a: u16,
+        b: u16,
+    }
 }
 
-fn eq() -> (TupleEnum, TupleEnum) {
-    (TupleEnum::One(2, "Flop".into()),
-     TupleEnum::One(2, "Flop".into()))
+fn eq() -> (StructEnum, StructEnum) {
+    (StructEnum::One { two: 2, flip: "Flop".into() },
+     StructEnum::One { two: 2, flip: "Flop".into() })
 }
 
-fn not_eq() -> (TupleEnum, TupleEnum) {
-    (TupleEnum::One(2, "Flop".into()),
-     TupleEnum::One(2, "Blizz".into()))
+
+fn not_eq() -> (StructEnum, StructEnum) {
+    (StructEnum::One { two: 2, flip: "Flop".into() },
+     StructEnum::One { two: 2, flip: "Blizz".into() })
 }
 
-fn not_eq_multivar() -> (TupleEnum, TupleEnum) {
-    (TupleEnum::One(2, "Flop".into()),
-     TupleEnum::Two(3, 4))
+fn not_eq_multivar() -> (StructEnum, StructEnum) {
+    (StructEnum::One { two: 2, flip: "Flop".into() },
+     StructEnum::Two { a: 1, b: 2 })
 }
 
 #[test]
@@ -32,6 +39,7 @@ fn list_allows_same() {
     let (one, two) = eq();
     let diffs = one.fields_not_equal(&two);
     assert_eq!(diffs.len(), 0);
+
 }
 
 #[test]
@@ -49,7 +57,7 @@ fn list_catches_differences() {
         .map(|ue| ue.field_name)
         .collect::<Vec<_>>();
 
-    assert_eq!(diffs, vec!["TupleEnum::One.1"]);
+    assert_eq!(diffs, vec!["flip"]);
 }
 
 #[test]
@@ -69,7 +77,7 @@ fn list_catches_differences_multivar() {
         .map(|ue| ue.field_name)
         .collect::<Vec<_>>();
 
-    assert_eq!(diffs, vec!["TupleEnum::One"]);
+    assert_eq!(diffs, vec!["StructEnum::One"]);
 }
 
 #[test]

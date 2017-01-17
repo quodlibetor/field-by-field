@@ -2,7 +2,7 @@
 
 extern crate field_by_field;
 #[macro_use]
-extern crate field_by_field_macros;
+extern crate field_by_field_derive;
 
 use field_by_field::EqualFieldByField;
 

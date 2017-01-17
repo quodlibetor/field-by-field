@@ -5,7 +5,7 @@ You know, for tests.
 
 [![Build Status](https://travis-ci.org/quodlibetor/field-by-field.svg?branch=master)](https://travis-ci.org/quodlibetor/field-by-field)
 
-These crates (`field-by-field` and `field-by-field-macros`) implement
+These crates (`field-by-field` and `field-by-field-derive`) implement
 comparisons between complex structs or enums with error messages that describe
 *which fields* caused an error. This is mostly useful for particularly large
 structs or enums.
@@ -17,7 +17,7 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 field-by-field = { git = "https://github.com/quodlibetor/field-by-field" }
-field-by-field-macros = { git = "https://github.com/quodlibetor/field-by-field" }
+field-by-field-derive = { git = "https://github.com/quodlibetor/field-by-field" }
 ```
 
 Derive `FieldByField`, and then write some tests, using
@@ -36,13 +36,11 @@ in here.
 ## Example
 
 ```rust
-#![feature(proc_macro)]  // only required until rust 1.15
-
 #[cfg(test)]
 extern crate field_by_field;
 #[cfg(test)]
 #[macro_use]
-extern crate field_by_field_macros;
+extern crate field_by_field_derive;
 
 #[cfg_attr(test, derive(FieldByField))]
 #[derive(Debug)]
@@ -83,6 +81,6 @@ This will fail with the following error message:
 ```
 
 Additionally, all
-of [the files in `field-by-field-macros/tests`](field-by-field-macros/tests)
+of [the files in `field-by-field-derive/tests`](field-by-field-derive/tests)
 will demonstrate usage and show what error messages look like if you remove the
 `#[should_panic]` annotations.

@@ -10,7 +10,7 @@ pub struct UnequalField {
 
 /// A trait that compares items field by field, rather than whole-hog
 ///
-/// Should be used via the `field_by_field_macros` crate.
+/// Should be used via the `field_by_field_derive` crate.
 pub trait EqualFieldByField {
     /// Get a list of the fields that are not equal
     fn fields_not_equal(&self, other: &Self) -> Vec<UnequalField>;
