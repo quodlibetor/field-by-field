@@ -5,8 +5,6 @@ rust:
   - nightly
 
 script:
-  - |
-    cd field-by-field-macros
-    cargo test --verbose
+  - cargo test --verbose -p field-by-field-derive
 
 sudo: false
